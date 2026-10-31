@@ -1,154 +1,142 @@
-import { useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRef, useState } from 'react'
+import { StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { Screen } from '@/components/ui/Screen'
+import { NeonInput } from '@/components/ui/NeonInput'
+import { NeonButton } from '@/components/ui/NeonButton'
 import { useAuth } from '@/features/auth/hooks'
-import { toE164 } from '../../utils/phone'
-import { theme, neonGlow, noWebOutline } from '@/utils/theme'
+import { authErrorMessage } from '@/features/auth/errors'
+import { formatPhoneInput, toE164 } from '@/utils/phone'
+import { fontSize, layout, palette, spacing } from '@/constants/theme'
 
 export default function Login() {
   const router = useRouter()
-  const insets = useSafeAreaInsets()
   const { sendCode } = useAuth()
 
   const [phone, setPhone] = useState('')
-  const [focused, setFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const onContinue = async () => {
-    if (loading) return
-    setError(null)
+  // A ref (not state) so a fast double-tap can't send two texts before
+  // React has re-rendered with loading = true. Every text costs money.
+  const submitting = useRef(false)
 
-    const e164 = toE164(phone)
+  const e164 = toE164(phone)
+
+  const onNext = async () => {
+    if (submitting.current) return
     if (!e164) {
       setError('Enter a valid phone number')
       return
     }
 
+    submitting.current = true
     setLoading(true)
-    const { error: sendError } = await sendCode(e164)
-    setLoading(false)
+    setError(null)
 
-    if (sendError) {
-      setError(sendError.message)
-      return
+    try {
+      const { error: sendError } = await sendCode(e164)
+      if (sendError) {
+        setError(authErrorMessage(sendError))
+        return
+      }
+      router.push({ pathname: '/verify', params: { phone: e164 } })
+    } finally {
+      submitting.current = false
+      setLoading(false)
     }
-    router.push({ pathname: '/verify', params: { phone: e164 } })
   }
 
-  const canSubmit = phone.trim().length > 0 && !loading
-
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Login</Text>
-        <Text style={styles.subtitle}>Enter your phone number and we'll text you a code.</Text>
+    <Screen>
+      {/* Top: brand */}
+      <View style={styles.header}>
+        <Text style={styles.brand} maxFontSizeMultiplier={layout.maxFontScale}>
+          Commit
+        </Text>
+      </View>
 
-        <TextInput
-          style={[styles.input, neonGlow(focused), noWebOutline]}
+      {/* Middle: title with the input directly underneath, centered on the screen */}
+      <View style={styles.middle}>
+        <Text
+          style={styles.title}
+          accessibilityRole="header"
+          maxFontSizeMultiplier={layout.maxFontScale}
+        >
+          Login
+        </Text>
+
+        <NeonInput
           value={phone}
-          onChangeText={setPhone}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onSubmitEditing={onContinue}
-          placeholder="(555) 555-5555"
-          placeholderTextColor={theme.muted}
-          selectionColor={theme.neon}
+          onChangeText={(text) => {
+            setPhone((prev) => formatPhoneInput(text, prev))
+            if (error) setError(null)
+          }}
+          onSubmitEditing={onNext}
+          invalid={!!error}
+          placeholder="Phone number"
+          accessibilityLabel="Phone number"
           keyboardType="phone-pad"
           textContentType="telephoneNumber"
           autoComplete="tel"
+          autoCorrect={false}
+          spellCheck={false}
+          maxLength={20}
           returnKeyType="done"
-          autoFocus
+          editable={!loading}
         />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {/* Reserved space so the layout doesn't jump when an error appears */}
+        <View style={styles.errorSlot}>
+          {error ? (
+            <Text
+              style={styles.error}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              maxFontSizeMultiplier={layout.maxFontScale}
+            >
+              {error}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
-      <Pressable
-        onPress={onContinue}
-        disabled={!canSubmit}
-        style={({ pressed }) => [
-          styles.button,
-          !canSubmit && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator color={theme.text} />
-        ) : (
-          <Text style={styles.buttonText}>Continue</Text>
-        )}
-      </Pressable>
-    </KeyboardAvoidingView>
+      {/* Bottom: next */}
+      <NeonButton label="Next" onPress={onNext} loading={loading} disabled={!e164} />
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    paddingHorizontal: 24,
+  header: {
+    alignItems: 'center',
+    paddingTop: spacing.md,
   },
-  content: {
+  brand: {
+    color: palette.text,
+    fontSize: fontSize.brand,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  middle: {
     flex: 1,
     justifyContent: 'center',
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '800',
-    marginBottom: 8,
+    color: palette.text,
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
-  subtitle: {
-    color: theme.muted,
-    fontSize: 16,
-    marginBottom: 32,
-  },
-  input: {
-    height: 60,
-    borderWidth: 2,
-    borderColor: theme.neon,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    color: theme.text,
-    fontSize: 18,
-    backgroundColor: 'rgba(176, 38, 255, 0.06)',
+  errorSlot: {
+    minHeight: 44,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
   },
   error: {
-    color: theme.danger,
+    color: palette.danger,
     fontSize: 14,
-    marginTop: 12,
-    marginLeft: 8,
-  },
-  button: {
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: theme.neon,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonText: {
-    color: theme.text,
-    fontSize: 17,
-    fontWeight: '700',
+    textAlign: 'center',
   },
 })

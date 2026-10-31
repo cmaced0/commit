@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { toE164 } from '@/lib/phone'
+import { toE164 } from '@/utils/phone'
 
 export const sendCode = async (rawPhone: string) => {
     const phone = toE164(rawPhone)

@@ -1,104 +1,128 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { ComponentRef, useEffect, useRef, useState } from 'react'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { parsePhoneNumberFromString } from 'libphonenumber-js'
+import { Screen } from '@/components/ui/Screen'
+import { NeonInput } from '@/components/ui/NeonInput'
+import { NeonButton } from '@/components/ui/NeonButton'
+import { useAppearance } from '@/features/appearance/useAppearance'
 import { useAuth } from '@/features/auth/hooks'
-import { theme, neonGlow, noWebOutline } from '@/utils/theme'
+import { authErrorMessage } from '@/features/auth/errors'
+import { useCooldown } from '@/hooks/useCooldown'
+import { fontSize, layout, palette, spacing } from '@/constants/theme'
 
 const CODE_LENGTH = 6 // must match the OTP length set in Supabase
 const RESEND_SECONDS = 30
 
+type InputRef = ComponentRef<typeof TextInput>
+
 export default function Verify() {
   const router = useRouter()
-  const insets = useSafeAreaInsets()
-  const { phone } = useLocalSearchParams<{ phone: string }>()
-  const { verifyCode, sendCode } = useAuth()
+  const { secondary } = useAppearance()
+  const { pendingPhone, verifyCode, sendCode } = useAuth()
 
   const [code, setCode] = useState('')
-  const [focused, setFocused] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [cooldown, setCooldown] = useState(RESEND_SECONDS)
-  const inputRef = useRef<TextInput>(null)
+  // A text was just sent on the login screen, so the wait starts immediately
+  const cooldown = useCooldown(RESEND_SECONDS)
+  const inputRef = useRef<InputRef>(null)
 
-  const prettyPhone = phone
-    ? parsePhoneNumberFromString(phone)?.formatNational() ?? phone
+  // Refs (not state) so a fast double-tap can't verify twice or resend twice
+  // before React re-renders. Every text costs money.
+  const submitting = useRef(false)
+  const resending = useRef(false)
+
+  // The number lives in memory only. If it's gone (page refresh on web, or this
+  // screen opened directly), there is nothing to verify: go back to login.
+  useEffect(() => {
+    if (!pendingPhone) router.replace('/login')
+  }, [pendingPhone, router])
+
+  const prettyPhone = pendingPhone
+    ? parsePhoneNumberFromString(pendingPhone)?.formatNational() ?? pendingPhone
     : ''
 
-  // Resend countdown
-  useEffect(() => {
-    if (cooldown <= 0) return
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [cooldown])
-
   const submit = async (value: string) => {
-    if (loading || !phone) return
+    if (submitting.current || value.length !== CODE_LENGTH) return
+
+    submitting.current = true
     setLoading(true)
     setError(null)
 
-    const { error: verifyError } = await verifyCode(phone, value)
-    setLoading(false)
-
-    if (verifyError) {
-      setCode('')
-      setError("That code didn't work. Check it and try again.")
-      inputRef.current?.focus()
+    try {
+      const { error: verifyError } = await verifyCode(value)
+      if (verifyError) {
+        setCode('')
+        setError(authErrorMessage(verifyError))
+        inputRef.current?.focus()
+      }
+      // On success there's nothing to do here: the session change in AuthProvider
+      // flips the route guard and moves the user into the app.
+    } finally {
+      submitting.current = false
+      setLoading(false)
     }
-    // On success there's nothing to do here: the session change in AuthProvider
-    // flips the route guard and moves the user into the app.
   }
 
   const onChangeCode = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, CODE_LENGTH)
     setCode(digits)
+    if (error) setError(null)
     if (digits.length === CODE_LENGTH) submit(digits)
   }
 
   const resend = async () => {
-    if (cooldown > 0 || !phone) return
+    if (resending.current || cooldown.active || !pendingPhone) return
+
+    resending.current = true
     setError(null)
-    const { error: sendError } = await sendCode(phone)
-    if (sendError) {
-      setError(sendError.message)
-      return
+
+    try {
+      const { error: sendError } = await sendCode(pendingPhone)
+      if (sendError) {
+        setError(authErrorMessage(sendError))
+        return
+      }
+      cooldown.start(RESEND_SECONDS)
+    } finally {
+      resending.current = false
     }
-    setCooldown(RESEND_SECONDS)
   }
 
-  const canSubmit = code.length === CODE_LENGTH && !loading
+  // Nothing to show while the redirect above runs
+  if (!pendingPhone) return null
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>Enter code</Text>
-        <Text style={styles.subtitle}>
+    <Screen>
+      {/* Top: brand */}
+      <View style={styles.header}>
+        <Text style={styles.brand} maxFontSizeMultiplier={layout.maxFontScale}>
+          Commit
+        </Text>
+      </View>
+
+      {/* Middle: title, hint, code input, links */}
+      <View style={styles.middle}>
+        <Text
+          style={styles.title}
+          accessibilityRole="header"
+          maxFontSizeMultiplier={layout.maxFontScale}
+        >
+          Enter code
+        </Text>
+        <Text style={styles.subtitle} maxFontSizeMultiplier={layout.maxFontScale}>
           We sent a {CODE_LENGTH}-digit code to {prettyPhone}.
         </Text>
 
-        <TextInput
+        <NeonInput
           ref={inputRef}
-          style={[styles.input, neonGlow(focused), noWebOutline]}
+          style={styles.codeInput}
           value={code}
           onChangeText={onChangeCode}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          invalid={!!error}
           placeholder={'•'.repeat(CODE_LENGTH)}
-          placeholderTextColor={theme.muted}
-          selectionColor={theme.neon}
+          accessibilityLabel="Verification code"
           keyboardType="number-pad"
           textContentType="oneTimeCode"
           autoComplete="sms-otp"
@@ -107,109 +131,108 @@ export default function Verify() {
           autoFocus
         />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {/* Reserved space so the layout doesn't jump when an error appears */}
+        <View style={styles.errorSlot}>
+          {error ? (
+            <Text
+              style={styles.error}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              maxFontSizeMultiplier={layout.maxFontScale}
+            >
+              {error}
+            </Text>
+          ) : null}
+        </View>
 
+        {/* Links use the secondary color so they read as lesser actions */}
         <View style={styles.links}>
-          <Pressable onPress={resend} disabled={cooldown > 0} hitSlop={10}>
-            <Text style={[styles.link, cooldown > 0 && styles.linkDisabled]}>
-              {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+          <Pressable
+            onPress={resend}
+            disabled={cooldown.active}
+            hitSlop={10}
+            accessibilityRole="button"
+          >
+            <Text
+              style={[styles.link, { color: cooldown.active ? palette.muted : secondary }]}
+              maxFontSizeMultiplier={layout.maxFontScale}
+            >
+              {cooldown.active ? `Resend code in ${cooldown.seconds}s` : 'Resend code'}
             </Text>
           </Pressable>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
-            <Text style={styles.link}>Wrong number?</Text>
+          <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button">
+            <Text
+              style={[styles.link, { color: secondary }]}
+              maxFontSizeMultiplier={layout.maxFontScale}
+            >
+              Wrong number?
+            </Text>
           </Pressable>
         </View>
       </View>
 
-      <Pressable
+      {/* Bottom: verify */}
+      <NeonButton
+        label="Verify"
         onPress={() => submit(code)}
-        disabled={!canSubmit}
-        style={({ pressed }) => [
-          styles.button,
-          !canSubmit && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator color={theme.text} />
-        ) : (
-          <Text style={styles.buttonText}>Verify</Text>
-        )}
-      </Pressable>
-    </KeyboardAvoidingView>
+        loading={loading}
+        disabled={code.length !== CODE_LENGTH}
+      />
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    paddingHorizontal: 24,
+  header: {
+    alignItems: 'center',
+    paddingTop: spacing.md,
   },
-  content: {
+  brand: {
+    color: palette.text,
+    fontSize: fontSize.brand,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  middle: {
     flex: 1,
     justifyContent: 'center',
   },
   title: {
-    color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '800',
-    marginBottom: 8,
+    color: palette.text,
+    fontSize: fontSize.title,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    color: theme.muted,
-    fontSize: 16,
-    marginBottom: 32,
+    color: palette.muted,
+    fontSize: fontSize.body,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
-  input: {
-    height: 68,
-    borderWidth: 2,
-    borderColor: theme.neon,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    color: theme.text,
-    fontSize: 30,
+  // Larger, spaced-out digits for the one-time code
+  codeInput: {
+    fontSize: 28,
     fontWeight: '700',
     letterSpacing: 10,
-    textAlign: 'center',
-    backgroundColor: 'rgba(176, 38, 255, 0.06)',
+  },
+  errorSlot: {
+    minHeight: 44,
+    paddingTop: spacing.sm,
+    alignItems: 'center',
   },
   error: {
-    color: theme.danger,
+    color: palette.danger,
     fontSize: 14,
-    marginTop: 12,
     textAlign: 'center',
   },
   links: {
-    marginTop: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   link: {
-    color: theme.neon,
     fontSize: 15,
     fontWeight: '600',
-  },
-  linkDisabled: {
-    color: theme.muted,
-  },
-  button: {
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: theme.neon,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonText: {
-    color: theme.text,
-    fontSize: 17,
-    fontWeight: '700',
   },
 })

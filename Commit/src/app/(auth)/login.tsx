@@ -40,7 +40,7 @@ export default function Login() {
         setError(authErrorMessage(sendError))
         return
       }
-      router.push({ pathname: '/verify', params: { phone: e164 } })
+      router.push({pathname: '/verify'})
     } finally {
       submitting.current = false
       setLoading(false)

@@ -1,31 +1,35 @@
 import { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { DEFAULT_ACCENT } from '@/constants/theme'
+import { DEFAULT_PALETTE_ID, PALETTES } from '@/constants/theme'
 
-const STORAGE_KEY = 'appearance.accent.v1'
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
+const STORAGE_KEY = 'appearance.palette.v1'
 
 export type AppearanceContextValue = {
-  accent: string
-  setAccent: (hex: string) => void
+  primary: string
+  secondary: string
+  accent: string // alias of primary so components written earlier keep working
+  paletteId: string
+  setPalette: (id: string) => void
   ready: boolean // true once the saved choice has been loaded
 }
 
 export const AppearanceContext = createContext<AppearanceContextValue | null>(null)
 
-// Holds the user's chosen accent color (the outline and glow color) and remembers it
-// on this device. Later this can also sync to a column on `profiles` so it follows
-// the user across devices.
+const find = (id: string) => PALETTES.find((p) => p.id === id)
+
+// Holds the user's chosen palette (a primary and secondary neon pair) and remembers it
+// on this device. Later this can also sync to a `profiles.palette_id` column so it
+// follows the user across devices.
 export function AppearanceProvider({ children }: { children: ReactNode }) {
-  const [accent, setAccentState] = useState(DEFAULT_ACCENT)
+  const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE_ID)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let active = true
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        // Stored values are treated as untrusted: only accept a valid hex color
-        if (active && saved && HEX_COLOR.test(saved)) setAccentState(saved)
+        // Stored values are treated as untrusted: only accept an id from the known list
+        if (active && saved && find(saved)) setPaletteId(saved)
       })
       .catch(() => {}) // storage can be unavailable (private mode, blocked data)
       .finally(() => {
@@ -36,13 +40,23 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const setAccent = useCallback((hex: string) => {
-    if (!HEX_COLOR.test(hex)) return
-    setAccentState(hex)
-    AsyncStorage.setItem(STORAGE_KEY, hex).catch(() => {})
+  const setPalette = useCallback((id: string) => {
+    if (!find(id)) return
+    setPaletteId(id)
+    AsyncStorage.setItem(STORAGE_KEY, id).catch(() => {})
   }, [])
 
-  const value = useMemo(() => ({ accent, setAccent, ready }), [accent, setAccent, ready])
+  const value = useMemo(() => {
+    const p = find(paletteId) ?? PALETTES[0]
+    return {
+      primary: p.primary,
+      secondary: p.secondary,
+      accent: p.primary,
+      paletteId: p.id,
+      setPalette,
+      ready,
+    }
+  }, [paletteId, setPalette, ready])
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>
 }

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native'
 
 export const theme = {
-  bg: '#0B0B12',
+  bg: '#1e0a27',
   text: '#FFFFFF',
   muted: '#9A9AB0',
   neon: '#B026FF',

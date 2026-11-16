@@ -1,4 +1,8 @@
-import { Platform, ViewStyle } from 'react-native'
+import { Platform, TextStyle, ViewStyle } from 'react-native'
+
+// The glow is used on Views, Pressables and TextInputs. An intersection is accepted
+// by both ViewStyle and TextStyle, so call sites need no casts.
+type GlowStyle = ViewStyle & TextStyle
 
 // "#B026FF" + 0.35 -> "rgba(176, 38, 255, 0.35)"
 export function withAlpha(hex: string, alpha: number): string {
@@ -17,11 +21,11 @@ const GLOW = {
 
 // Soft colored glow. Native uses shadow props; web uses boxShadow
 // (react-native-web is deprecating the shadow* props).
-export function glow(color: string, strength: GlowStrength = 'soft'): ViewStyle {
+export function glow(color: string, strength: GlowStrength = 'soft'): GlowStyle {
   const g = GLOW[strength]
 
   if (Platform.OS === 'web') {
-    return { boxShadow: `0 0 ${g.radius}px ${withAlpha(color, g.opacity)}` } as unknown as ViewStyle
+    return { boxShadow: `0 0 ${g.radius}px ${withAlpha(color, g.opacity)}` } as unknown as GlowStyle
   }
 
   return {

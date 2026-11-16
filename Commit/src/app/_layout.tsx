@@ -7,6 +7,7 @@ import { useAppearance } from '@/features/appearance/useAppearance'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { useAuth } from '@/features/auth/hooks'
 import { palette } from '@/constants/theme'
+import { useFonts } from 'expo-font'
 
 SplashScreen.preventAutoHideAsync()
 
@@ -14,12 +15,20 @@ SplashScreen.preventAutoHideAsync()
 function RootNavigator() {
   const { session, loading } = useAuth()
   const { ready } = useAppearance()
+  
+  const [fontsLoaded, fontError] = useFonts({
+    Freedom45: require('../../assets/fonts/freedom45.ttf'),
+    Norwester: require('../../assetes/fonts/norwester.otf'),
+  })
+  const fontsReady = fontsLoaded || !!fontError
 
   // Keep the splash screen up until both the saved session and the saved
   // accent color are loaded, so nothing flashes the wrong screen or color.
   useEffect(() => {
-    if (!loading && ready) SplashScreen.hideAsync()
-  }, [loading, ready])
+    if (!loading && ready && fontsReady) SplashScreen.hideAsync()
+  }, [loading, ready, fontsReady])
+
+  if (!fontsReady) return null
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.bg } }}>

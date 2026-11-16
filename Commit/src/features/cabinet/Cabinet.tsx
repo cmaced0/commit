@@ -1,5 +1,5 @@
 import { Stack, useGlobalSearchParams } from 'expo-router'
-import { CabinetFrame } from '@/components/ui/CabinetFrame'
+import { CabinetFrame, usePanelFill } from '@/components/ui/CabinetFrame'
 import { useCabinet } from './useCabinet'
 import { DeckNav } from './DeckNav'
 import { OptionsButton, ProfileButton } from './TopButtons'
@@ -10,6 +10,7 @@ const DEFAULT_TITLE = 'Challenge Rooms'
 // panel through a Stack, so back navigation and screen history still work.
 export function Cabinet() {
   const { title } = useCabinet()
+  const panelFill = usePanelFill()
 
   // A page under room/[roomId] means a room is chosen, so the deck appears.
   const { roomId: rawRoomId } = useGlobalSearchParams<{ roomId?: string }>()
@@ -27,8 +28,8 @@ export function Cabinet() {
         screenOptions={{
           headerShown: false,
           animation: 'fade',
-          // Transparent so the panel color shows through
-          contentStyle: { backgroundColor: 'transparent' },
+
+          contentStyle: {backgroundColor: panelFill}
         }}
       />
     </CabinetFrame>

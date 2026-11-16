@@ -4,7 +4,7 @@
 
 // Marble-gray neutrals. A faint cool tint keeps them from looking flat.
 export const palette = {
-  bg: '#121317',       // deepest layer (screen background)
+  bg: '#101011',       // deepest layer (screen background)
   bgRaised: '#181A20', // cards, tab bar
   surface: '#1E2128',  // inputs and buttons (kept opaque so glows render on Android)
   vein: '#2A2E38',     // dividers, subtle marble veining
@@ -26,7 +26,7 @@ export const PALETTES: readonly Palette[] = [
   { id: 'sunset', name: 'Sunset', primary: '#FFB020', secondary: '#FF2EC4' },
 ]
 
-export const DEFAULT_PALETTE_ID = 'ultraviolet'
+export const DEFAULT_PALETTE_ID = 'arcade'
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const
 export const radius = { md: 14, lg: 20 } as const
@@ -38,8 +38,16 @@ export const cabinet = {
   marqueeFlex: 11, // top plate    \
   panelFlex: 75, // center panel   > height shares, they add up to 100
   deckFlex: 14, // bottom plate    /
-  panelRadius: 12,
-  panelTint: 0.12, // how much of the primary color is blended into the panel
+  panelRadius: 8,
+  panelTint: 0.08, // how much of the primary color is blended into the panel
+  joinAngle: 160
+} as const
+
+export const fonts = { heading: 'Freedom45', body: 'Norwester' } as const
+
+export const typeface = {
+  heading: { fontFamily: fonts.heading, fontWeight: 'normal'},
+  body: { fontFamily: fonts.body, fontWeight: 'normal'}
 } as const
 
 // Thin outlines everywhere

@@ -8,12 +8,14 @@ type Props = {
   onPress: () => void
   loading?: boolean
   disabled?: boolean
+  variant?: 'primary' | 'secondary' // which palette color to use
 }
 
-// Thin outlined button with a soft glow in the user's accent color.
+// Thin outlined button with a soft glow in the user's primary (default) or secondary color.
 // Dims and loses its glow when disabled or loading.
-export function NeonButton({ label, onPress, loading, disabled }: Props) {
-  const { accent } = useAppearance()
+export function NeonButton({ label, onPress, loading, disabled, variant = 'primary' }: Props) {
+  const { primary, secondary } = useAppearance()
+  const accent = variant === 'primary' ? primary : secondary
   const inactive = !!(disabled || loading)
 
   return (

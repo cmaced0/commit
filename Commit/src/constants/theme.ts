@@ -1,28 +1,46 @@
 // Design tokens. Anything visual that more than one screen needs lives here.
-// The accent color is NOT here as a fixed value: it's user-changeable and comes
-// from useAppearance(). DEFAULT_ACCENT is only the starting point.
+// The neon colors are NOT here as fixed values: the user picks a palette and they
+// come from useAppearance(). The neutrals below never change.
 
+// Marble-gray neutrals. A faint cool tint keeps them from looking flat.
 export const palette = {
-  bg: '#0A1022',      // deep navy background
-  surface: '#0F1731', // inputs and buttons (kept opaque so glows render on Android)
-  text: '#FFFFFF',
-  muted: '#8B93B0',
-  danger: '#FF6B8B',
+  bg: '#121317',       // deepest layer (screen background)
+  bgRaised: '#181A20', // cards, tab bar
+  surface: '#1E2128',  // inputs and buttons (kept opaque so glows render on Android)
+  vein: '#2A2E38',     // dividers, subtle marble veining
+  border: '#343947',   // non-accent outlines
+  text: '#F4F5F8',
+  muted: '#8E94A6',
+  danger: '#FF5C7A',   // fixed: errors never change with the palette
 } as const
 
-export const DEFAULT_ACCENT = '#B026FF' // neon purple
+export type Palette = { id: string; name: string; primary: string; secondary: string }
 
-// Choices offered to the user later in a settings screen
-export const ACCENT_PRESETS = [
-  { name: 'Neon purple', value: '#B026FF' },
-  { name: 'Electric cyan', value: '#22D3EE' },
-  { name: 'Hot pink', value: '#FF2EC4' },
-  { name: 'Mint', value: '#39FF88' },
-  { name: 'Amber', value: '#FFB020' },
-] as const
+// Choices offered to the user in the settings screen.
+// Keep each pair far apart on the color wheel so the secondary reads as contrast.
+export const PALETTES: readonly Palette[] = [
+  { id: 'synthwave', name: 'Synthwave', primary: '#FF2EC4', secondary: '#22D3EE' },
+  { id: 'ultraviolet', name: 'Ultraviolet', primary: '#B026FF', secondary: '#FFB020' },
+  { id: 'miami', name: 'Miami', primary: '#22D3EE', secondary: '#FF6B3D' },
+  { id: 'arcade', name: 'Arcade', primary: '#39FF88', secondary: '#B026FF' },
+  { id: 'sunset', name: 'Sunset', primary: '#FFB020', secondary: '#FF2EC4' },
+]
+
+export const DEFAULT_PALETTE_ID = 'ultraviolet'
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const
 export const radius = { md: 14, lg: 20 } as const
+
+// Arcade-cabinet frame proportions (section 6). Shares of the height inside the safe
+// areas, not pixels, so the layout fits any phone.
+export const cabinet = {
+  panelWidthRatio: 0.92, // center panel width as a share of the page width
+  marqueeFlex: 11, // top plate    \
+  panelFlex: 75, // center panel   > height shares, they add up to 100
+  deckFlex: 14, // bottom plate    /
+  panelRadius: 12,
+  panelTint: 0.12, // how much of the primary color is blended into the panel
+} as const
 
 // Thin outlines everywhere
 export const lineWidth = 1

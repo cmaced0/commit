@@ -1,8 +1,4 @@
-import { Platform, TextStyle, ViewStyle } from 'react-native'
-
-// The glow is used on Views (buttons) and on TextInputs. TextStyle extends ViewStyle,
-// so typing the result as TextStyle makes it valid for both without casts at the call site.
-type GlowStyle = TextStyle
+import { Platform, ViewStyle } from 'react-native'
 
 // "#B026FF" + 0.35 -> "rgba(176, 38, 255, 0.35)"
 export function withAlpha(hex: string, alpha: number): string {
@@ -21,7 +17,7 @@ const GLOW = {
 
 // Soft colored glow. Native uses shadow props; web uses boxShadow
 // (react-native-web is deprecating the shadow* props).
-export function glow(color: string, strength: GlowStrength = 'soft'): GlowStyle {
+export function glow(color: string, strength: GlowStrength = 'soft'): ViewStyle {
   const g = GLOW[strength]
 
   if (Platform.OS === 'web') {
